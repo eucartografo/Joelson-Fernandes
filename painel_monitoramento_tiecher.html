@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel de Monitoramento - Fazenda Piquizeiro (José Tiecher)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  html, body { margin:0; padding:0; height:100%; font-family: Arial, Helvetica, sans-serif; }
+  #map { position:absolute; top:0; bottom:0; left:0; right:0; }
+  .panel {
+    background: rgba(255,255,255,0.95);
+    padding: 10px 14px;
+    border-radius: 6px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    font-size: 13px;
+    line-height: 1.5;
+    color: #222;
+  }
+  .panel h4 { margin: 0 0 6px 0; font-size: 14px; }
+  .panel-header { cursor: pointer; user-select: none; font-weight: bold; }
+  .toggle-arrow { float: right; margin-left: 8px; }
+  .status-box { max-width: min(86vw, 320px); max-height: 75vh; overflow-y: auto; }
+  .prop-card { border-top: 1px solid #ddd; margin-top: 8px; padding-top: 8px; }
+  .prop-card:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+  .ndvi-bar { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #a50026, #fee08b, #1a9850); position: relative; margin: 4px 0; }
+  .ndvi-marker { position: absolute; top: -3px; width: 2px; height: 14px; background: #000; }
+  .tag { display:inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 10px; margin-right:4px; }
+  .tag-ok { background:#c8e6c9; color:#1b5e20; }
+  .tag-warn { background:#ffe0b2; color:#e65100; }
+  .leaflet-tooltip.mat-tooltip { font-size: 13px; line-height: 1.4; padding: 6px 8px; }
+  @media (max-width: 700px) {
+    .panel { font-size: 12px; padding: 7px 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const IS_MOBILE = window.matchMedia('(max-width: 700px)').matches;
+
+const PROPRIEDADES = [
+  {
+    matricula: '8749',
+    nome: 'Fazenda Piquizeiro - Gleba I',
+    proprietario: 'Mário Zinato Santos (proc. José Tiecher)',
+    area_ha: 5183.9485,
+    polygon: [[-45.64876722, -14.38513306], [-45.63938611, -14.40362861], [-45.628515, -14.42234972], [-45.61528, -14.44469194], [-45.60062333, -14.46877333], [-45.5997675, -14.47018917], [-45.59991028, -14.4704575], [-45.60051917, -14.47063833], [-45.60105917, -14.47068056], [-45.60148917, -14.47055333], [-45.60174, -14.47102528], [-45.60148222, -14.47155528], [-45.60113389, -14.47270722], [-45.60202278, -14.47294389], [-45.60260861, -14.47320556], [-45.60359472, -14.47323917], [-45.60431306, -14.4734925], [-45.60542611, -14.47439306], [-45.60618028, -14.47481556], [-45.60697361, -14.47611917], [-45.60753639, -14.47683389], [-45.60826306, -14.47726556], [-45.60967333, -14.47775972], [-45.61014917, -14.47820361], [-45.61000444, -14.4791175], [-45.61044639, -14.47962333], [-45.61078917, -14.48008222], [-45.6112325, -14.48024167], [-45.61150194, -14.48056917], [-45.61204139, -14.48093167], [-45.61205278, -14.48135361], [-45.61201806, -14.48142556], [-45.61333167, -14.48432222], [-45.61433139, -14.48583361], [-45.61536694, -14.48656028], [-45.61577194, -14.48695833], [-45.61659111, -14.4895], [-45.61739611, -14.49070028], [-45.61904417, -14.49225694], [-45.61878583, -14.49299222], [-45.61889028, -14.49362639], [-45.63585417, -14.45712444], [-45.657555, -14.47349028], [-45.65989861, -14.47525194], [-45.69070556, -14.42315611], [-45.68139194, -14.414165], [-45.67153222, -14.40405639], [-45.66053667, -14.39628944], [-45.65219056, -14.38790833], [-45.65059056, -14.38666306], [-45.64876722, -14.38513306]]
+  },
+  {
+    matricula: '8750',
+    nome: 'Fazenda Piquizeiro - Gleba II',
+    proprietario: 'Mário Zinato Santos (proc. José Tiecher)',
+    area_ha: 3061.9962,
+    polygon: [[-45.69072806, -14.4231725], [-45.65992083, -14.47526861], [-45.66745667, -14.48093333], [-45.65433306, -14.51376361], [-45.65441167, -14.51390917], [-45.65457667, -14.513955], [-45.65473278, -14.51385389], [-45.65484278, -14.51383111], [-45.65496222, -14.51385861], [-45.65500333, -14.51403278], [-45.65496222, -14.51428056], [-45.65489333, -14.51443194], [-45.65488417, -14.51459722], [-45.65496667, -14.51469361], [-45.65514111, -14.51472556], [-45.65528778, -14.51472111], [-45.65543472, -14.51463389], [-45.65552639, -14.51447333], [-45.65562278, -14.51436778], [-45.65585667, -14.51420722], [-45.65601278, -14.5140925], [-45.65613194, -14.51398694], [-45.65624194, -14.513955], [-45.65636583, -14.51400528], [-45.65653111, -14.51411083], [-45.65672833, -14.51419806], [-45.65683833, -14.51413389], [-45.65700361, -14.51406972], [-45.65710444, -14.514065], [-45.65721917, -14.51410167], [-45.6573475, -14.51420722], [-45.65741194, -14.5143725], [-45.65748528, -14.51451472], [-45.6576, -14.51467972], [-45.65772389, -14.51476694], [-45.65803111, -14.51485861], [-45.65822833, -14.51493667], [-45.65841194, -14.51497333], [-45.65851278, -14.51491833], [-45.65864139, -14.51490444], [-45.65881111, -14.51499639], [-45.65899444, -14.51507889], [-45.65910472, -14.51514778], [-45.65915056, -14.51510639], [-45.65908167, -14.51502833], [-45.65905889, -14.51493194], [-45.65909083, -14.51476222], [-45.65918278, -14.51469806], [-45.65928361, -14.51470278], [-45.65938444, -14.51473944], [-45.65963694, -14.51482194], [-45.65984778, -14.51487694], [-45.6600725, -14.51489083], [-45.66017806, -14.51483583], [-45.66025167, -14.51478056], [-45.6603525, -14.51478056], [-45.66048556, -14.51481278], [-45.66065056, -14.51482667], [-45.660935, -14.51478056], [-45.66116917, -14.51473472], [-45.66139833, -14.51470278], [-45.66158639, -14.51479444], [-45.66164611, -14.51492278], [-45.66164611, -14.51507417], [-45.66166444, -14.51519806], [-45.66180667, -14.51521194], [-45.66209583, -14.51520278], [-45.66228833, -14.51519361], [-45.66260028, -14.51519361], [-45.66292139, -14.51527611], [-45.663215, -14.51529917], [-45.66340778, -14.51531278], [-45.66355, -14.51536333], [-45.66382972, -14.51543667], [-45.66401333, -14.51545972], [-45.66416944, -14.51540917], [-45.66444917, -14.51539528], [-45.66463278, -14.51544583], [-45.66471056, -14.515565], [-45.66471972, -14.51577611], [-45.66474722, -14.51597333], [-45.66483, -14.51612028], [-45.66498583, -14.51625333], [-45.66517861, -14.51640472], [-45.66545833, -14.51656972], [-45.66561444, -14.51671667], [-45.66576583, -14.51696444], [-45.66584389, -14.517125], [-45.66600889, -14.51717083], [-45.66619694, -14.51718444], [-45.66637583, -14.51727167], [-45.66662361, -14.51739556], [-45.66678889, -14.51751472], [-45.66698611, -14.51755611], [-45.66707778, -14.51760667], [-45.66711917, -14.51779472], [-45.66713278, -14.51790472], [-45.66721556, -14.51795056], [-45.66731167, -14.51787278], [-45.66749528, -14.51778556], [-45.66762361, -14.51775806], [-45.66773389, -14.51779917], [-45.66783472, -14.51790028], [-45.667945, -14.51791389], [-45.66806417, -14.51789556], [-45.66823389, -14.51779], [-45.66833944, -14.517735], [-45.66842667, -14.51768917], [-45.66860083, -14.51769833], [-45.66873861, -14.51773056], [-45.66888083, -14.51771667], [-45.66904139, -14.51778083], [-45.6691375, -14.51790472], [-45.66922472, -14.51799194], [-45.66942444, -14.5180975], [-45.66963083, -14.51807917], [-45.669805, -14.51807917], [-45.66990361, -14.51813194], [-45.66999556, -14.51817306], [-45.6701675, -14.51821667], [-45.67028, -14.51818917], [-45.67040389, -14.51809056], [-45.6705, -14.518015], [-45.67065417, -14.51800111], [-45.67081444, -14.51795306], [-45.67124667, -14.51785556], [-45.67144167, -14.51783028], [-45.67167806, -14.51777278], [-45.67176528, -14.51768806], [-45.67185, -14.51754806], [-45.67192583, -14.51747917], [-45.67211278, -14.51751972], [-45.67214333, -14.51752222], [-45.71641944, -14.44268417], [-45.71007028, -14.43754667], [-45.70005139, -14.42992389], [-45.69072806, -14.4231725]]
+  }
+];
+
+const map = L.map('map', { zoomControl: true });
+
+L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+  maxZoom: 21,
+  subdomains: ['mt0','mt1','mt2','mt3'],
+  attribution: '&copy; Google'
+}).addTo(map);
+
+const allBounds = [];
+const propLayers = {};
+const imageOverlays = {}; // matricula -> {tci: layer, ndvi: layer}
+
+PROPRIEDADES.forEach(function(p) {
+  const latlngs = [p.polygon.map(function(pt) { return [pt[1], pt[0]]; })];
+  const poly = L.polygon(latlngs, {
+    color: '#d81b60', weight: 2.5, fillColor: '#d81b60', fillOpacity: 0.15, opacity: 0.95
+  });
+  poly.bindTooltip('<b>' + p.proprietario + '</b><br>Matrícula: ' + p.matricula + '<br>' + p.nome,
+    { sticky: true, className: 'mat-tooltip' });
+  poly.addTo(map);
+  propLayers[p.matricula] = poly;
+  p.polygon.forEach(function(pt) { allBounds.push([pt[1], pt[0]]); });
+});
+
+if (allBounds.length) map.fitBounds(allBounds, { padding: [40,40] });
+
+const tciLayer = L.layerGroup();
+const ndviLayer = L.layerGroup();
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const parts = iso.split('-');
+  if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+  return iso;
+}
+
+function ndviTag(v) {
+  if (v === null || v === undefined) return '';
+  if (v >= 0.5) return '<span class="tag tag-ok">vegetação densa</span>';
+  if (v >= 0.25) return '<span class="tag tag-warn">vegetação moderada / solo exposto</span>';
+  return '<span class="tag tag-warn">baixa cobertura vegetal</span>';
+}
+
+function buildCollapsible(div, titleText, bodyHtml, startCollapsed) {
+  const header = document.createElement('div');
+  header.className = 'panel-header';
+  header.innerHTML = titleText + '<span class="toggle-arrow">' + (startCollapsed ? '▸' : '▾') + '</span>';
+  const body = document.createElement('div');
+  body.innerHTML = bodyHtml;
+  body.style.display = startCollapsed ? 'none' : 'block';
+  header.onclick = function() {
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? 'block' : 'none';
+    header.querySelector('.toggle-arrow').textContent = hidden ? '▾' : '▸';
+  };
+  div.appendChild(header);
+  div.appendChild(body);
+  return body;
+}
+
+const statusControl = L.control({ position: 'topright' });
+let statusBodyEl = null;
+statusControl.onAdd = function() {
+  const div = L.DomUtil.create('div', 'panel status-box');
+  statusBodyEl = buildCollapsible(div, 'Monitoramento - Fazenda Piquizeiro', '<i>Carregando...</i>', IS_MOBILE);
+  return div;
+};
+statusControl.addTo(map);
+
+const layerControlObj = {};
+
+function renderStatus(status) {
+  let html = '';
+  PROPRIEDADES.forEach(function(p) {
+    const s = status[p.matricula] || {};
+    if (s.erro) {
+      html += '<div class="prop-card"><b>Matrícula ' + p.matricula + '</b> — ' + p.nome +
+              '<br><span class="tag tag-warn">' + s.erro + '</span></div>';
+      return;
+    }
+    const ndviPct = s.ndvi_medio !== undefined ? ((s.ndvi_medio + 1) / 2 * 100) : 50;
+    html += '<div class="prop-card">' +
+      '<b>Matrícula ' + p.matricula + '</b> — ' + p.nome + '<br>' +
+      'Área: ' + p.area_ha.toLocaleString('pt-BR') + ' ha<br>' +
+      'Imagem de satélite: ' + fmtDate(s.data_imagem) + ' (nuvens: ' + (s.nuvem_pct !== undefined ? s.nuvem_pct + '%' : '—') + ')<br>' +
+      'NDVI médio: ' + (s.ndvi_medio !== undefined ? s.ndvi_medio.toFixed(3) : '—') + ' ' + ndviTag(s.ndvi_medio) +
+      '<div class="ndvi-bar"><div class="ndvi-marker" style="left:' + ndviPct + '%;"></div></div>' +
+      '<span style="font-size:10.5px;color:#666;">CAR: verificação manual (SICAR não possui API pública) · SIGEF: conforme certidão</span>' +
+      '</div>';
+  });
+  html += '<div style="margin-top:8px; border-top:1px solid #ccc; padding-top:6px; font-size:10.5px; color:#666;">Imagens: Sentinel-2 (ESA/Copernicus), atualização automática mensal.</div>';
+  statusBodyEl.innerHTML = html;
+}
+
+fetch('sat/status.json')
+  .then(function(r) { return r.json(); })
+  .then(function(status) {
+    renderStatus(status);
+    PROPRIEDADES.forEach(function(p) {
+      const s = status[p.matricula];
+      if (!s || !s.bounds_wgs84) return;
+      const b = s.bounds_wgs84; // left, bottom, right, top
+      const bounds = [[b[1], b[0]], [b[3], b[2]]];
+      const tci = L.imageOverlay('sat/mat' + p.matricula + '_tci.png', bounds, { opacity: 1 });
+      const ndvi = L.imageOverlay('sat/mat' + p.matricula + '_ndvi.png', bounds, { opacity: 0.85 });
+      tci.addTo(tciLayer);
+      ndvi.addTo(ndviLayer);
+    });
+    tciLayer.addTo(map);
+
+    layerControlObj['Imagem de satélite (cor natural)'] = tciLayer;
+    layerControlObj['NDVI (vigor da vegetação)'] = ndviLayer;
+    layerControlObj['Limites dos imóveis'] = L.layerGroup(Object.values(propLayers));
+    layerControlObj['Limites dos imóveis'].addTo(map);
+
+    L.control.layers(null, layerControlObj, { collapsed: IS_MOBILE, position: 'topleft' }).addTo(map);
+  })
+  .catch(function(err) {
+    statusBodyEl.innerHTML = '<span class="tag tag-warn">Não foi possível carregar os dados de monitoramento (sat/status.json).</span>';
+    console.error(err);
+  });
+</script>
+</body>
+</html>
